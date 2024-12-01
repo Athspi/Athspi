@@ -1,20 +1,23 @@
 import streamlit as st
+import os
+import subprocess
+import tempfile
+import shutil
 
 # Set page configuration
 st.set_page_config(
-    page_title="AI-Powered Terminal",
-    layout="wide",  # Use the entire width
+    page_title="AI-Powered Terminal Chat",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# Custom CSS to hide all Streamlit branding and make the terminal full screen
+# CSS and customizations
 hide_streamlit_style = """
     <style>
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    iframe[title="streamlit cloud badge"] {visibility: hidden;}
     
     /* Full-screen terminal styling */
     .block-container {
@@ -28,7 +31,28 @@ hide_streamlit_style = """
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Embed HTML in Streamlit
+# Function to execute Python commands
+def execute_command(command, working_dir):
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            cwd=working_dir,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return result.stdout, result.stderr
+    except Exception as e:
+        return "", f"Error executing command: {e}"
+
+# Manage temporary files
+if "temp_dir" not in st.session_state:
+    st.session_state.temp_dir = tempfile.mkdtemp()
+
+temp_dir = st.session_state.temp_dir
+
+# Embed HTML terminal
 def render_terminal():
     html_code = """
     <!DOCTYPE html>
@@ -36,7 +60,7 @@ def render_terminal():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AI-Powered Terminal Chat (Fast Typing)</title>
+        <title>AI-Powered Terminal Chat</title>
         <style>
             body, html {
                 margin: 0;
@@ -90,28 +114,6 @@ def render_terminal():
             #send-btn:hover {
                 background-color: #00ff00;
             }
-            .line {
-                margin: 5px 0;
-                overflow: hidden;
-                white-space: nowrap;
-            }
-            .typed {
-                overflow: hidden;
-                white-space: nowrap;
-                animation: typing 0.5s steps(30, end);
-            }
-            @keyframes typing {
-                from { width: 0; }
-                to { width: 100%; }
-            }
-            @media (max-width: 768px) {
-                #terminal {
-                    font-size: 14px;
-                }
-                #user-input, #send-btn {
-                    font-size: 14px;
-                }
-            }
         </style>
     </head>
     <body>
@@ -125,66 +127,29 @@ def render_terminal():
             const userInput = document.getElementById('user-input');
             const sendBtn = document.getElementById('send-btn');
 
-            function typeWriter(text, lineElement, index = 0) {
-                if (index < text.length) {
-                    lineElement.textContent += text.charAt(index);
-                    setTimeout(() => typeWriter(text, lineElement, index + 1), Math.random() * 10 + 5); // Faster typing speed
-                } else {
-                    lineElement.classList.remove('typed');
-                    terminal.scrollTop = terminal.scrollHeight;
-                }
-            }
-
             function addLine(text, isUser = false) {
                 const lineElement = document.createElement('div');
-                lineElement.classList.add('line', 'typed');
                 if (isUser) {
-                    lineElement.style.color = '#ff0';
                     lineElement.textContent = '> ' + text;
-                    terminal.appendChild(lineElement);
-                    terminal.scrollTop = terminal.scrollHeight;
+                    lineElement.style.color = '#ff0';
                 } else {
-                    terminal.appendChild(lineElement);
-                    typeWriter(text, lineElement);
+                    lineElement.textContent = text;
                 }
-            }
-
-            function toggleFullScreen() {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen();
-                    addLine("Entering fullscreen mode...");
-                } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                        addLine("Exiting fullscreen mode...");
-                    }
-                }
+                terminal.appendChild(lineElement);
+                terminal.scrollTop = terminal.scrollHeight;
             }
 
             function processCommand(command) {
                 addLine(command, true);
-                
-                setTimeout(() => {
-                    switch(command.toLowerCase()) {
-                        case 'help':
-                            addLine("Available commands: help, download, clear, cs (toggle fullscreen)");
-                            break;
-                        case 'download':
-                            addLine("Initiating download sequence...");
-                            setTimeout(() => {
-                                addLine("File downloaded successfully!");
-                            }, 1000); // Faster download simulation
-                            break;
-                        case 'clear':
-                            terminal.innerHTML = '';
-                            break;
-                        case 'cs':
-                            toggleFullScreen();
-                            break;
-                        default:
-                            addLine("Unknown command. Type 'help' for available commands.");
-                    }
-                }, 200); // Faster response time
+                fetch('/run_command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: command })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    addLine(data.output);
+                });
             }
 
             sendBtn.addEventListener('click', () => {
@@ -201,7 +166,6 @@ def render_terminal():
                 }
             });
 
-            // Initial messages
             addLine("Welcome to the AI-Powered Terminal Chat!");
             addLine("Type 'help' for available commands.");
         </script>
@@ -210,5 +174,17 @@ def render_terminal():
     """
     st.components.v1.html(html_code, height=800)
 
-# Render the full-screen terminal
+# Render terminal
 render_terminal()
+
+# Execute Python commands from user input
+command_input = st.text_input("Python Command:", "")
+if st.button("Run Command"):
+    stdout, stderr = execute_command(command_input, temp_dir)
+    st.text_area("Output:", value=stdout + stderr, height=300)
+
+# Clear temporary files
+if st.button("Clear Temp Files"):
+    shutil.rmtree(temp_dir)
+    st.session_state.temp_dir = tempfile.mkdtemp()
+    st.success("Temporary files cleared!")
