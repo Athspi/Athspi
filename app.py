@@ -3,19 +3,20 @@ import streamlit as st
 # Set page configuration
 st.set_page_config(
     page_title="AI-Powered Terminal",
-    layout="wide",
+    layout="wide",  # Use the entire width
     initial_sidebar_state="collapsed",
 )
 
-# Custom CSS to hide Streamlit branding and badges
+# Custom CSS to hide all Streamlit branding and make the terminal full screen
 hide_streamlit_style = """
     <style>
-    #MainMenu {visibility: hidden;} /* Hide the hamburger menu */
-    footer {visibility: hidden;} /* Hide the footer */
-    .viewerBadge_container__1QSob {visibility: hidden;} /* Hide 'Powered by Streamlit' */
-    .st-cs {visibility: hidden;} /* Hide other Streamlit badges */
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    iframe[title="streamlit cloud badge"] {visibility: hidden;}
     
-    /* Full-screen and no padding */
+    /* Full-screen terminal styling */
     .block-container {
         padding: 0;
         margin: 0;
@@ -35,7 +36,7 @@ def render_terminal():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AI-Powered Terminal Chat</title>
+        <title>AI-Powered Terminal Chat (Fast Typing)</title>
         <style>
             body, html {
                 margin: 0;
@@ -209,5 +210,5 @@ def render_terminal():
     """
     st.components.v1.html(html_code, height=800)
 
-# Render the terminal
+# Render the full-screen terminal
 render_terminal()
