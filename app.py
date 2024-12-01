@@ -7,13 +7,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Hide Streamlit branding and make the terminal full screen
+# Custom CSS to hide all Streamlit branding and make the terminal full screen
 hide_streamlit_style = """
     <style>
-    /* Hide Streamlit elements */
+    /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    iframe[title="streamlit cloud badge"] {visibility: hidden;}
+    
     /* Full-screen terminal styling */
     .block-container {
         padding: 0;
