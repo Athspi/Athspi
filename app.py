@@ -1,5 +1,31 @@
 import streamlit as st
 
+# Set page configuration
+st.set_page_config(
+    page_title="AI-Powered Terminal",
+    layout="wide",  # Use the entire width
+    initial_sidebar_state="collapsed",
+)
+
+# Hide Streamlit branding and make the terminal full screen
+hide_streamlit_style = """
+    <style>
+    /* Hide Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    /* Full-screen terminal styling */
+    .block-container {
+        padding: 0;
+        margin: 0;
+    }
+    iframe {
+        border: none;
+    }
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # Embed HTML in Streamlit
 def render_terminal():
     html_code = """
@@ -180,8 +206,7 @@ def render_terminal():
     </body>
     </html>
     """
-    st.components.v1.html(html_code, height=600)
+    st.components.v1.html(html_code, height=800)
 
-# Streamlit app
-st.title("AI-Powered Terminal Chat")
+# Render the full-screen terminal
 render_terminal()
