@@ -4,22 +4,19 @@ import subprocess
 import tempfile
 import shutil
 
-# Set page configuration
+# Set Streamlit page configuration
 st.set_page_config(
-    page_title="AI-Powered Terminal Chat",
+    page_title="AI Terminal in Streamlit",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# CSS and customizations
+# Hide Streamlit branding and styling for terminal look
 hide_streamlit_style = """
     <style>
-    /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Full-screen terminal styling */
     .block-container {
         padding: 0;
         margin: 0;
@@ -31,7 +28,13 @@ hide_streamlit_style = """
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Function to execute Python commands
+# Initialize a temporary directory for the session
+if "temp_dir" not in st.session_state:
+    st.session_state.temp_dir = tempfile.mkdtemp()
+
+temp_dir = st.session_state.temp_dir
+
+# Function to execute commands
 def execute_command(command, working_dir):
     try:
         result = subprocess.run(
@@ -46,145 +49,98 @@ def execute_command(command, working_dir):
     except Exception as e:
         return "", f"Error executing command: {e}"
 
-# Manage temporary files
-if "temp_dir" not in st.session_state:
-    st.session_state.temp_dir = tempfile.mkdtemp()
-
-temp_dir = st.session_state.temp_dir
-
-# Embed HTML terminal
+# Render terminal UI
 def render_terminal():
     html_code = """
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AI-Powered Terminal Chat</title>
         <style>
             body, html {
-                margin: 0;
-                padding: 0;
-                height: 100%;
-                overflow: hidden;
-                font-family: 'Courier New', monospace;
-                background-color: #000;
-                color: #0f0;
+                margin: 0; padding: 0; height: 100%; background-color: black; color: #0f0;
+                font-family: "Courier New", monospace; overflow: hidden;
             }
-            #terminal {
-                height: calc(100% - 60px);
-                width: 100%;
-                overflow-y: auto;
-                padding: 20px;
-                box-sizing: border-box;
+            .terminal-container {
+                height: calc(100% - 50px); width: 100%; overflow-y: auto; padding: 10px;
             }
-            #input-area {
-                height: 60px;
-                width: 100%;
-                display: flex;
-                padding: 10px;
-                box-sizing: border-box;
-                background-color: #111;
-                align-items: center;
-            }
-            #user-input {
-                flex-grow: 1;
-                background-color: #000;
-                border: 2px solid #0f0;
-                color: #0f0;
-                font-family: 'Courier New', monospace;
-                font-size: 16px;
-                padding: 10px;
-                border-radius: 5px 0 0 5px;
-                outline: none;
-            }
-            #send-btn {
-                width: 80px;
-                height: 42px;
-                background-color: #0f0;
-                color: #000;
-                border: none;
-                cursor: pointer;
-                font-family: 'Courier New', monospace;
-                font-size: 16px;
-                font-weight: bold;
-                border-radius: 0 5px 5px 0;
-                transition: background-color 0.3s;
-            }
-            #send-btn:hover {
-                background-color: #00ff00;
+            .terminal-input {
+                height: 50px; width: 100%; background-color: #000; color: #0f0;
+                font-family: "Courier New", monospace; font-size: 16px; padding: 10px;
+                border: none; outline: none; box-sizing: border-box;
             }
         </style>
     </head>
     <body>
-        <div id="terminal"></div>
-        <div id="input-area">
-            <input type="text" id="user-input" placeholder="Enter your command..." aria-label="Enter your command">
-            <button id="send-btn">Send</button>
-        </div>
+        <div class="terminal-container" id="terminal"></div>
+        <input class="terminal-input" id="terminal-input" placeholder="Type a command here..." autofocus />
         <script>
             const terminal = document.getElementById('terminal');
-            const userInput = document.getElementById('user-input');
-            const sendBtn = document.getElementById('send-btn');
-
-            function addLine(text, isUser = false) {
-                const lineElement = document.createElement('div');
-                if (isUser) {
-                    lineElement.textContent = '> ' + text;
-                    lineElement.style.color = '#ff0';
-                } else {
-                    lineElement.textContent = text;
-                }
-                terminal.appendChild(lineElement);
+            const input = document.getElementById('terminal-input');
+            function addLine(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                terminal.appendChild(div);
                 terminal.scrollTop = terminal.scrollHeight;
             }
-
-            function processCommand(command) {
-                addLine(command, true);
-                fetch('/run_command', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command: command })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    addLine(data.output);
-                });
-            }
-
-            sendBtn.addEventListener('click', () => {
-                const command = userInput.value.trim();
-                if (command) {
-                    processCommand(command);
-                    userInput.value = '';
-                }
-            });
-
-            userInput.addEventListener('keypress', (e) => {
+            input.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
-                    sendBtn.click();
+                    const command = input.value;
+                    input.value = '';
+                    addLine('> ' + command);
+                    fetch('/streamlit/command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        addLine(data.stdout || '');
+                        addLine(data.stderr || '');
+                    });
                 }
             });
-
-            addLine("Welcome to the AI-Powered Terminal Chat!");
-            addLine("Type 'help' for available commands.");
+            addLine('Welcome to the AI Terminal!');
+            addLine('Type your command and press Enter.');
         </script>
     </body>
     </html>
     """
-    st.components.v1.html(html_code, height=800)
+    st.components.v1.html(html_code, height=600)
 
-# Render terminal
+# Render terminal UI
 render_terminal()
 
-# Execute Python commands from user input
-command_input = st.text_input("Python Command:", "")
+# Execute Python commands
+if "command" not in st.session_state:
+    st.session_state.command = ""
+
+st.session_state.command = st.text_input("Enter a Python command:")
 if st.button("Run Command"):
-    stdout, stderr = execute_command(command_input, temp_dir)
-    st.text_area("Output:", value=stdout + stderr, height=300)
+    stdout, stderr = execute_command(st.session_state.command, temp_dir)
+    st.text_area("Command Output", value=stdout + stderr, height=300)
+
+# Upload/Download files
+uploaded_file = st.file_uploader("Upload a file to process")
+if uploaded_file:
+    file_path = os.path.join(temp_dir, uploaded_file.name)
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.read())
+    st.success(f"Uploaded file saved to {file_path}")
+
+# Show available files for download
+if os.listdir(temp_dir):
+    st.markdown("### Available Files for Download:")
+    for file_name in os.listdir(temp_dir):
+        file_path = os.path.join(temp_dir, file_name)
+        with open(file_path, "rb") as f:
+            st.download_button(
+                label=f"Download {file_name}",
+                data=f,
+                file_name=file_name,
+            )
 
 # Clear temporary files
-if st.button("Clear Temp Files"):
+if st.button("Clear Temporary Files"):
     shutil.rmtree(temp_dir)
-    st.session_state.temp_dir = tempfile.mkdtemp()
+    os.mkdir(temp_dir)
     st.success("Temporary files cleared!")
